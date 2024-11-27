@@ -1,0 +1,4 @@
+streamlit==1.25.0  # Ensure compatibility with your Streamlit app version
+openai==0.28.0     # OpenAI library for interacting with GPT models
+requests==2.31.0   # To send HTTP requests to the Telegram API
+schedule==1.2.0    # For scheduling tasks
