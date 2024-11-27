@@ -104,6 +104,5 @@ st.markdown("### This Month's News")
 summary_month = generate_and_send_news(news_data, "month", month_later)
 st.write(summary_month)
 
-can we get a timer? 
-like scheduled pushing no deployment app
+
 
