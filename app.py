@@ -1,37 +1,110 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
 import streamlit as st
+import openai
+import requests
+from datetime import datetime, timedelta
+#rom config import env_vars
 
-"""
-# Welcome to Streamlit!
+#OPENAI_API_KEY = env_vars.OPENAI_API_KEY
+#openai.api_key = OPENAI_API_KEY
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+# Initialize OpenAI API
 
-with st.echo(code_location='below'):
-   total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-   num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
 
-   Point = namedtuple('Point', 'x y')
-   data = []
+# Telegram Bot Token and Channel Chat ID (replace with your actual values)
+TELEGRAM_BOT_TOKEN = "7845194271:AAHd07FXO4UB4aAw24xlXmMFnGkV6Q4v1JQ"  # Replace with your actual Telegram bot token
+TELEGRAM_CHAT_ID = "-1002496992612"  # Your Telegram channel username (e.g., @newsdilak)
 
-   points_per_turn = total_points / num_turns
+# Function to send messages to Telegram
+def send_to_telegram(message):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML"
+    }
+    response = requests.post(url, data=payload)
+    return response.ok
 
-   for curr_point_num in range(total_points):
-      curr_turn, i = divmod(curr_point_num, points_per_turn)
-      angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-      radius = curr_point_num / total_points
-      x = radius * math.cos(angle)
-      y = radius * math.sin(angle)
-      data.append(Point(x, y))
+# Function to generate and summarize news with emojis
+def generate_and_send_news(news_data, period, period_date):
+    prompt = f"Today is {datetime.now().strftime('%B %d, %Y')}. Below are the generated news articles with clickable links and emojis for the {period} period (deadline on or before {period_date}):\n\n"
 
-   st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-      .mark_circle(color='#0068c9', opacity=0.5)
-      .encode(x='x:Q', y='y:Q'))
+    emoji_map = {
+        "scholarship": "🎓",
+        "technology": "💻",
+        "international": "🌎",
+        "women": "👩‍💻",
+        "general": "📰"
+    }
+
+    for news in news_data:
+        title = news.get('title', 'No Title')
+        link = news.get('url', '#')
+        category = news.get('category', 'general')
+        emoji = emoji_map.get(category, "📰")
+        prompt += f"- {emoji} <a href='{link}'>{title}</a>\n"
+
+    prompt += (
+        "\nSummarize these articles with concise, attractive points, and use emojis to make them engaging."
+    )
+
+    # Generate summary using GPT-4
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=300
+    )
+
+    summary = response['choices'][0]['message']['content'].strip()
+
+    # Format message for Telegram and send
+    telegram_message = f"<b>News Updates ({period.capitalize()} Deadline)</b>\n\n" + summary
+    send_to_telegram(telegram_message)
+
+    return summary
+
+# Function to categorize deadlines
+def categorize_deadlines():
+    today = datetime.now()
+    week_later = today + timedelta(days=7)
+    month_later = today + timedelta(days=30)
+
+    return today.strftime("%B %d, %Y"), week_later.strftime("%B %d, %Y"), month_later.strftime("%B %d, %Y")
+
+# Sample news data with categories and URLs
+news_data = [
+    {"title": "Global STEM Scholarship for Students Worldwide", "url": "https://www.globalstemscholarship.org", "category": "scholarship"},
+    {"title": "Advances in Artificial Intelligence", "url": "https://www.techadvances.com", "category": "technology"},
+    {"title": "Women in Technology International Scholarship", "url": "https://www.womenintechnology.org", "category": "women"},
+    {"title": "Undergraduate Scholarship for International Students", "url": "https://www.internationalscholarships.com", "category": "international"}
+]
+
+# Streamlit app layout
+st.title("📰 AI-Powered News with Emojis")
+st.markdown("Get AI-generated news updates, categorized and enhanced with engaging emojis!")
+
+# Categorize deadlines and generate summaries for each period
+today, week_later, month_later = categorize_deadlines()
+
+st.subheader("News Articles")
+for news in news_data:
+    title = news.get('title', 'No Title')
+    link = news.get('url', '#')
+    emoji = "📌"  # Static emoji for listing
+    st.markdown(f"{emoji} [{title}]({link})")
+
+st.subheader("Generated Summaries")
+
+st.markdown("### Today's News")
+summary_today = generate_and_send_news(news_data, "day", today)
+st.write(summary_today)
+
+st.markdown("### This Week's News")
+summary_week = generate_and_send_news(news_data, "week", week_later)
+st.write(summary_week)
+
+st.markdown("### This Month's News")
+summary_month = generate_and_send_news(news_data, "month", month_later)
+st.write(summary_month)
