@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 #OPENAI_API_KEY = env_vars.OPENAI_API_KEY
 #openai.api_key = OPENAI_API_KEY
 
-
+OPENAI_API_KEY=openai.api_key
 
 # Initialize OpenAI API
 
